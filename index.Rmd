@@ -1,31 +1,74 @@
 ---
 title: "Conjoint Analysis Team Project"
 output: html_document
-date: "2025-06-04"
+
+date: "2025-06-20"
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```
 
-## R Markdown
+## Purpose and product
+The following is a conjoint analysis for a breakfast product to be sold in Tokyo , mainly targetting office professionals.
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+## Defining the attributes
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+The research will include six attributes.
+Conventional attributes: 
+* Price
+* Form
+* Purchase Location
 
-```{r cars}
-summary(cars)
+Innovative attributes:
+* Fun Packaging
+* Cognitive Support
+* Digital Integration 
+
+
+Loading the data and creating the attribute: 
+
+```{r, echo = FALSE}
+# load required libraries
+library(conjoint)
+library(dplyr)
+library(purrr)
+library(readxl)
+library(usethis)
+library(ggplot2)
+library(knitr)
+
+# source custom functions from Shingo-sensei
+source("SCRIPTS/conjoint_tool_new.R")
+
+# define the attributes
+attribute <- list(
+  Price = c("200", "400", "600"),
+  Form = c("Bread and Pastries","Wrap","Yougurt Jelly"),
+  PurchaseLocation = c("On Route to work","Within 150m", "More than 150m"),
+  FunPackaging = c("None", "Attack on Titan", "Doan Ritsu"),
+  CognitiveSupport = c("None","Caffeine or Alertness boost",
+                       "Natural Mood Stabilizer"),
+  DigitalIntegration = c("None", "Loyalty points", "Nutrition Advice")
+)
+
+kable(data.frame(attribute))
 ```
 
-## Including Plots
+## Generating products for survey
 
-You can also embed plots, for example:
+To generate the combinations for the survey, we run:
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+# Step 2: Profile Construction
+# Full factorial design
+profiles <- expand.grid(attribute)
+
+# Orthogonal design
+design.o <- caFactorialDesign(data=profiles, type="fractional", cards=13)
+
+
+kable(design.o)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
 
-## Next section
