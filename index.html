@@ -367,6 +367,30 @@ Price * Form * Purchase Location</p>
 <p>Innovative attributes: * Fun Packaging * Cognitive Support * Digital
 Integration</p>
 <p>Loading the data and creating the attribute:</p>
+<pre class="r"><code># load required libraries
+library(conjoint)
+library(dplyr)
+library(purrr)
+library(readxl)
+library(usethis)
+library(ggplot2)
+library(knitr)
+
+# source custom functions from Shingo-sensei
+source(&quot;SCRIPTS/conjoint_tool_new.R&quot;)
+
+# define the attributes
+attribute &lt;- list(
+  Price = c(&quot;200&quot;, &quot;400&quot;, &quot;600&quot;),
+  Form = c(&quot;Bread and Pastries&quot;,&quot;Wrap&quot;,&quot;Yougurt Jelly&quot;),
+  PurchaseLocation = c(&quot;On Route to work&quot;,&quot;Within 150m&quot;, &quot;More than 150m&quot;),
+  FunPackaging = c(&quot;None&quot;, &quot;Attack on Titan&quot;, &quot;Doan Ritsu&quot;),
+  CognitiveSupport = c(&quot;None&quot;,&quot;Caffeine or Alertness boost&quot;,
+                       &quot;Natural Mood Stabilizer&quot;),
+  DigitalIntegration = c(&quot;None&quot;, &quot;Loyalty points&quot;, &quot;Nutrition Advice&quot;)
+)
+
+kable(data.frame(attribute))</code></pre>
 <table>
 <colgroup>
 <col width="5%" />

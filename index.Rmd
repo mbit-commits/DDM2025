@@ -28,7 +28,7 @@ Innovative attributes:
 
 Loading the data and creating the attribute: 
 
-```{r, echo = FALSE}
+```{r}
 # load required libraries
 library(conjoint)
 library(dplyr)
