@@ -382,7 +382,7 @@ source(&quot;SCRIPTS/conjoint_tool_new.R&quot;)
 # define the attributes
 attribute &lt;- list(
   Price = c(&quot;200&quot;, &quot;400&quot;, &quot;600&quot;),
-  Form = c(&quot;Bread and Pastries&quot;,&quot;Wrap&quot;,&quot;Yougurt Jelly&quot;),
+  Form = c(&quot;Bread and Pastries&quot;,&quot;Onigiri&quot;,&quot;Protein sticks&quot;),
   PurchaseLocation = c(&quot;On Route to work&quot;,&quot;Within 150m&quot;, &quot;More than 150m&quot;),
   FunPackaging = c(&quot;None&quot;, &quot;Attack on Titan&quot;, &quot;Doan Ritsu&quot;),
   CognitiveSupport = c(&quot;None&quot;,&quot;Caffeine or Alertness boost&quot;,
@@ -421,7 +421,7 @@ kable(data.frame(attribute))</code></pre>
 </tr>
 <tr class="even">
 <td align="left">400</td>
-<td align="left">Wrap</td>
+<td align="left">Onigiri</td>
 <td align="left">Within 150m</td>
 <td align="left">Attack on Titan</td>
 <td align="left">Caffeine or Alertness boost</td>
@@ -429,7 +429,7 @@ kable(data.frame(attribute))</code></pre>
 </tr>
 <tr class="odd">
 <td align="left">600</td>
-<td align="left">Yougurt Jelly</td>
+<td align="left">Protein sticks</td>
 <td align="left">More than 150m</td>
 <td align="left">Doan Ritsu</td>
 <td align="left">Natural Mood Stabilizer</td>
@@ -448,11 +448,12 @@ profiles &lt;- expand.grid(attribute)
 # Orthogonal design
 design.o &lt;- caFactorialDesign(data=profiles, type=&quot;fractional&quot;, cards=13)
 
+design.o.p &lt;- tibble::rowid_to_column(design.o, &quot;ID&quot;)
 
-kable(design.o)</code></pre>
-<table>
+kable(design.o.p)</code></pre>
+<table style="width:100%;">
 <colgroup>
-<col width="3%" />
+<col width="2%" />
 <col width="5%" />
 <col width="17%" />
 <col width="15%" />
@@ -462,7 +463,7 @@ kable(design.o)</code></pre>
 </colgroup>
 <thead>
 <tr class="header">
-<th align="left"></th>
+<th align="right">ID</th>
 <th align="left">Price</th>
 <th align="left">Form</th>
 <th align="left">PurchaseLocation</th>
@@ -473,7 +474,7 @@ kable(design.o)</code></pre>
 </thead>
 <tbody>
 <tr class="odd">
-<td align="left">48</td>
+<td align="right">1</td>
 <td align="left">600</td>
 <td align="left">Bread and Pastries</td>
 <td align="left">More than 150m</td>
@@ -482,34 +483,34 @@ kable(design.o)</code></pre>
 <td align="left">None</td>
 </tr>
 <tr class="even">
-<td align="left">61</td>
+<td align="right">2</td>
 <td align="left">200</td>
-<td align="left">Yougurt Jelly</td>
+<td align="left">Protein sticks</td>
 <td align="left">On Route to work</td>
 <td align="left">Doan Ritsu</td>
 <td align="left">None</td>
 <td align="left">None</td>
 </tr>
 <tr class="odd">
-<td align="left">104</td>
+<td align="right">3</td>
 <td align="left">400</td>
-<td align="left">Wrap</td>
+<td align="left">Onigiri</td>
 <td align="left">More than 150m</td>
 <td align="left">None</td>
 <td align="left">Caffeine or Alertness boost</td>
 <td align="left">None</td>
 </tr>
 <tr class="even">
-<td align="left">195</td>
+<td align="right">4</td>
 <td align="left">600</td>
-<td align="left">Wrap</td>
+<td align="left">Onigiri</td>
 <td align="left">On Route to work</td>
 <td align="left">Attack on Titan</td>
 <td align="left">Natural Mood Stabilizer</td>
 <td align="left">None</td>
 </tr>
 <tr class="odd">
-<td align="left">227</td>
+<td align="right">5</td>
 <td align="left">400</td>
 <td align="left">Bread and Pastries</td>
 <td align="left">Within 150m</td>
@@ -518,7 +519,7 @@ kable(design.o)</code></pre>
 <td align="left">None</td>
 </tr>
 <tr class="even">
-<td align="left">245</td>
+<td align="right">6</td>
 <td align="left">400</td>
 <td align="left">Bread and Pastries</td>
 <td align="left">On Route to work</td>
@@ -527,16 +528,16 @@ kable(design.o)</code></pre>
 <td align="left">Loyalty points</td>
 </tr>
 <tr class="odd">
-<td align="left">321</td>
+<td align="right">7</td>
 <td align="left">600</td>
-<td align="left">Wrap</td>
+<td align="left">Onigiri</td>
 <td align="left">More than 150m</td>
 <td align="left">Doan Ritsu</td>
 <td align="left">None</td>
 <td align="left">Loyalty points</td>
 </tr>
 <tr class="even">
-<td align="left">361</td>
+<td align="right">8</td>
 <td align="left">200</td>
 <td align="left">Bread and Pastries</td>
 <td align="left">Within 150m</td>
@@ -545,34 +546,34 @@ kable(design.o)</code></pre>
 <td align="left">Loyalty points</td>
 </tr>
 <tr class="odd">
-<td align="left">458</td>
+<td align="right">9</td>
 <td align="left">400</td>
-<td align="left">Yougurt Jelly</td>
+<td align="left">Protein sticks</td>
 <td align="left">More than 150m</td>
 <td align="left">Attack on Titan</td>
 <td align="left">Natural Mood Stabilizer</td>
 <td align="left">Loyalty points</td>
 </tr>
 <tr class="even">
-<td align="left">527</td>
+<td align="right">10</td>
 <td align="left">400</td>
-<td align="left">Wrap</td>
+<td align="left">Onigiri</td>
 <td align="left">Within 150m</td>
 <td align="left">Attack on Titan</td>
 <td align="left">None</td>
 <td align="left">Nutrition Advice</td>
 </tr>
 <tr class="odd">
-<td align="left">585</td>
+<td align="right">11</td>
 <td align="left">600</td>
-<td align="left">Yougurt Jelly</td>
+<td align="left">Protein sticks</td>
 <td align="left">Within 150m</td>
 <td align="left">None</td>
 <td align="left">Caffeine or Alertness boost</td>
 <td align="left">Nutrition Advice</td>
 </tr>
 <tr class="even">
-<td align="left">623</td>
+<td align="right">12</td>
 <td align="left">400</td>
 <td align="left">Bread and Pastries</td>
 <td align="left">On Route to work</td>
@@ -581,7 +582,7 @@ kable(design.o)</code></pre>
 <td align="left">Nutrition Advice</td>
 </tr>
 <tr class="odd">
-<td align="left">667</td>
+<td align="right">13</td>
 <td align="left">200</td>
 <td align="left">Bread and Pastries</td>
 <td align="left">More than 150m</td>

@@ -13,7 +13,7 @@ source("SCRIPTS/conjoint_tool_new.R")
 # define the attributes
 attribute <- list(
   Price = c("200", "400", "600"),
-  Form = c("Bread and Pastries","Wrap","Yougurt Jelly"),
+  Form = c("Bread and Pastries","Onigiri","Protein sticks"),
   PurchaseLocation = c("On Route to work","Within 150m", "More than 150m"),
   FunPackaging = c("None", "Attack on Titan", "Doan Ritsu"),
   CognitiveSupport = c("None","Caffeine or Alertness boost",
@@ -28,3 +28,6 @@ profiles <- expand.grid(attribute)
 # Orthogonal design
 design.o <- caFactorialDesign(data=profiles, type="fractional", cards=13)
 print(design.o)
+
+tibble::rowid_to_column(design.o, "ID")
+seq.int(nrow(design.o))
