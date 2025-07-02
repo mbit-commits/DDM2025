@@ -1,7 +1,11 @@
 ---
 title: "Conjoint Analysis Team Project"
-output: html_document
-
+#output: html_document
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
 date: "2025-06-20"
 ---
 
@@ -10,26 +14,29 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```
 
 ## Purpose and product
-The following is a conjoint analysis for a breakfast product to be sold in Tokyo , mainly targetting office professionals.
+The following is a conjoint analysis for a breakfast product to be sold in Tokyo, mainly targeting office professionals.
 
 ## Defining the attributes
 
 The research will include six attributes.
-Conventional attributes: 
-* Price
-* Form
-* Purchase Location
+Conventional attributes:
+
+- Price
+- Form
+- Purchase Location
 
 Innovative attributes:
-* Fun Packaging
-* Cognitive Support
-* Digital Integration 
+
+- Fun Packaging
+- Cognitive Support
+- Digital Integration 
 
 
 Loading the data and creating the attribute: 
 
 ```{r}
 # load required libraries
+
 library(conjoint)
 library(dplyr)
 library(purrr)
@@ -37,9 +44,30 @@ library(readxl)
 library(usethis)
 library(ggplot2)
 library(knitr)
+library(googlesheets4)
+library(forcats)
+library(tidyr)
+library(gridExtra)
+library(tidytext)
+library(tidyr)
+library(wordcloud)
+library(reshape2)
+library(syuzhet)
+library(wordcloud)
+library(topicmodels)
+library(utf8)
+library(readxl)
+library(textdata)
+library(lubridate)
+library(plotly)
+library(GGally)
+library(factoextra)
+library(cluster)
 
-# source custom functions from Shingo-sensei
+# source custom functions from sensei
 source("SCRIPTS/conjoint_tool_new.R")
+source("SCRIPTS/cltool_new.R")
+
 
 # define the attributes
 attribute <- list(
@@ -66,10 +94,675 @@ profiles <- expand.grid(attribute)
 
 # Orthogonal design
 design.o <- caFactorialDesign(data=profiles, type="fractional", cards=13)
-
+# Assigning incremental id for clarity
 design.o.p <- tibble::rowid_to_column(design.o, "ID")
+# Assigning variable for part-worth calculation
+brkfst_design <- design.o
 
+# Displaying table
 kable(design.o.p)
 ```
 
+## Data loading and sanitization
+Proceeding with loading the data from the survey:
+```{r}
+
+## reading the survey data
+#Read google sheets data into R
+brkfst <- read_excel("DATA/DDM_MCU_survey.xlsx", 
+                            sheet = "Form Responses 1")
+```
+
+Before starting the analysis, we sanitize the data. Given that country input was free-hand with no pre-built validation, we take a look at the values collected:
+
+```{r}
+
+# check country
+brkfst %>% 
+  group_by(country) %>% 
+  summarize(n = n())
+
+```
+
+We proceed to santize the `country` variable, and roll-up into a `region` variable:
+```{r}
+
+# sanitize county
+brkfst <- 
+  brkfst %>% 
+  mutate(country2 = case_when(country == "TW" ~ "Taiwan",
+                              country == "singapore" ~ "Singapore",
+                              country == "PHILIPPINES" ~ "Philippines",
+                              TRUE ~ country))
+
+# check country
+brkfst %>% 
+  group_by(country2) %>% 
+  summarize(n = n())
+
+
+# create region
+brkfst <- brkfst %>%
+  mutate(region = case_when(
+    country2 %in% c("Taiwan", "China", "Japan", "Korea", 
+                   "Mongolia", "South Korea") ~ "East Asia",
+    country2 %in% c("Singapore", "Malaysia", "Thailand", "Vietnam",
+                   "Myanmar", "Philippines" ) ~ "South-East Asia",
+    country2 %in% c("India", "Bangladesh") ~ "Indian subcontinent",
+    country2 %in% c("Bulgaria", "Romania", "Slovakia",
+                   "United States") ~ "Western",
+                              TRUE ~ country))
+# check region
+brkfst %>% 
+  group_by(region) %>% 
+  summarize(n = n())
+```
+
+## Generating partworth utilities
+Next step is to generate part worth utilies, based on responents preference for the product combinations.
+
+```{r}
+
+# ratings cut
+brkfst_rating <- 
+  brkfst %>% 
+  select(starts_with("PROD"))
+
+# generating partworths
+brkfst_part <- ca.part.util(brkfst_rating ,brkfst_design, attribute)
+
+```
+
+To visualize the overall utilities, we compute the column means and plot the result.
+
+```{r}
+
+#overall average utilities
+average_utility <- colMeans(brkfst_part)
+average_utility_df <- data.frame(level = names(average_utility),
+           avg_utility = average_utility)
+
+average_utility_df <- 
+  average_utility_df %>% 
+  filter(level != "intercept")
+
+average_utility_df <- 
+  average_utility_df %>% 
+  mutate(group =
+           c("Price", "Price", "Price",
+             "Form", "Form", "Form",
+             "PurchaseLocation", "PurchaseLocation", "PurchaseLocation",
+             "FunPackaging", "FunPackaging", "FunPackaging",
+             "CognitiveSupport", "CognitiveSupport","CognitiveSupport",
+             "DigitalIntegration", "DigitalIntegration", "DigitalIntegration"
+             )) %>% 
+  mutate(level_fct = factor(level)) %>% 
+  mutate(rank = seq.int(1:length(average_utility_df$level))) %>% 
+  mutate(order_rnk = level, rank) %>% 
+  mutate(space_char = rep(c("L"), length(average_utility_df$level))) %>% 
+  unite("lng_level", c("space_char","rank","level"))
+  
+average_utility_df <- average_utility_df %>% 
+  mutate(rank = seq.int(1:length(average_utility_df$level))) %>% 
+  mutate(lng_level = as.factor(lng_level)) %>% 
+  mutate(lng_level = fct_reorder(lng_level, rank )) %>% 
+  mutate(group_fct = factor(group, levels = c("Price", "Form", "PurchaseLocation",
+                            "FunPackaging", "CognitiveSupport", "DigitalIntegration"
+                            )))
+
+
+ggplot(average_utility_df, aes(x=lng_level, y = avg_utility
+                               ,fill = group_fct
+))+
+  geom_col() +
+  coord_flip() + 
+  scale_x_discrete(limits = rev(levels(average_utility_df$lng_level))) +
+  geom_text(aes(label = format(round(avg_utility, 2), nsmall = 2)), vjust = -0.5) +
+  ggtitle(paste("All sample", length(brkfst$nickname), sep = ", n=")) +
+  guides(fill="none")
+  
+```
+
+## Computing importance
+### Overall all sample
+Going further, we plot the importance overall first.
+```{r}
+# Importance - # Overall all sample
+ca.importance(brkfst_part, attribute)
+
+## plot importance overall
+sub_importance <- 
+  ca.importance(brkfst_part, attribute)
+
+sub_importance_df <- data.frame(
+  sub_importance = sub_importance,
+  attribute_txt = names(sub_importance)
+)
+sub_importance_df <- sub_importance_df %>% 
+  mutate(group_fct = factor(attribute_txt, levels = c("Price", "Form", "PurchaseLocation",
+                                                      "FunPackaging", "CognitiveSupport", "DigitalIntegration"
+  )))
+
+ggplot(sub_importance_df, aes(x=group_fct, y = sub_importance,
+                              fill=attribute_txt)) +
+  geom_col() +
+  coord_flip() +
+  scale_x_discrete(limits = rev(levels(sub_importance_df$group_fct))) +
+  geom_text(aes(label = format(round(sub_importance, 2), nsmall = 2)), vjust = -0.5) +
+  ggtitle(paste("All sample", length(brkfst$nickname), sep = ", n=")) +
+  guides(fill="none")
+
+```
+
+It can be observed that for the whole sample, there are two variables that are very closely tied together: `Price` with 24% and `Form` with 24%. This suggests likely a trade-off between two different needs (low price and personal taste), which can be investigated through segmentation.
+
+### Gender
+We turn to subgroups:
+```{r}
+
+#breakdown of importance by subcomponents
+#### by gender
+plot_list <- list()
+var_by = brkfst$gender
+attr_levels <- unique(var_by)
+
+for (i in seq_along(attr_levels)) {
+  
+  iter = attr_levels[i]
+  n_obs = length(brkfst_part[var_by == iter,1])
+  
+  sub_importance <- 
+    ca.importance(brkfst_part[var_by == iter,], attribute)
+  
+  sub_importance_df <- data.frame(
+    sub_importance = sub_importance,
+    attribute_txt = names(sub_importance)
+  )
+  sub_importance_df <- sub_importance_df %>% 
+    mutate(group_fct = factor(attribute_txt, levels = c("Price", "Form", "PurchaseLocation",
+                                                        "FunPackaging", "CognitiveSupport", "DigitalIntegration"
+    )))
+  
+  plot_list[[i]] <- ggplot(sub_importance_df, aes(x=group_fct, y = sub_importance,
+                                                  fill=group_fct)) +
+    geom_col() +
+    coord_flip() +
+    scale_x_discrete(limits = rev(levels(sub_importance_df$group_fct))) +
+    geom_text(aes(label = format(round(sub_importance, 2), nsmall = 2)), vjust = -0.5) +
+    ggtitle(paste(iter, n_obs, sep = ", n=")) +
+    guides(fill="none")
+}
+
+grid.arrange(grobs=plot_list,ncol=2)
+```
+
+### Region
+Turning to region:
+```{r}
+
+#### by region
+plot_list <- list()
+var_by = brkfst$region
+attr_levels <- unique(var_by)
+
+for (i in seq_along(attr_levels)) {
+  
+  iter = attr_levels[i]
+  n_obs = length(brkfst_part[var_by == iter,1])
+  
+  sub_importance <- 
+    ca.importance(brkfst_part[var_by == iter,], attribute)
+  
+  sub_importance_df <- data.frame(
+    sub_importance = sub_importance,
+    attribute_txt = names(sub_importance)
+  )
+  sub_importance_df <- sub_importance_df %>% 
+    mutate(group_fct = factor(attribute_txt, levels = c("Price", "Form", "PurchaseLocation",
+                                                        "FunPackaging", "CognitiveSupport", "DigitalIntegration"
+    )))
+  
+  plot_list[[i]] <- ggplot(sub_importance_df, aes(x=group_fct, y = sub_importance,
+                                                  fill=group_fct)) +
+    geom_col() +
+    coord_flip() +
+    scale_x_discrete(limits = rev(levels(sub_importance_df$group_fct))) +
+    geom_text(aes(label = format(round(sub_importance, 2), nsmall = 2)), vjust = -0.5) +
+    ggtitle(paste(iter, n_obs, sep = ", n=")) +
+    guides(fill="none")
+}
+
+grid.arrange(grobs=plot_list,ncol=2)
+```
+
+### Age
+Turning to Age
+```{r}
+
+
+#### by age
+plot_list <- list()
+var_by = brkfst$age
+attr_levels <- unique(var_by)
+
+for (i in seq_along(attr_levels)) {
+  
+  iter = attr_levels[i]
+  n_obs = length(brkfst_part[var_by == iter,1])
+  
+  sub_importance <- 
+    ca.importance(brkfst_part[var_by == iter,], attribute)
+  
+  sub_importance_df <- data.frame(
+    sub_importance = sub_importance,
+    attribute_txt = names(sub_importance)
+  )
+  sub_importance_df <- sub_importance_df %>% 
+    mutate(group_fct = factor(attribute_txt, levels = c("Price", "Form", "PurchaseLocation",
+                                                        "FunPackaging", "CognitiveSupport", "DigitalIntegration"
+    )))
+  
+  plot_list[[i]] <- ggplot(sub_importance_df, aes(x=group_fct, y = sub_importance,
+                                                  fill=group_fct)) +
+    geom_col() +
+    coord_flip() +
+    scale_x_discrete(limits = rev(levels(sub_importance_df$group_fct))) +
+    geom_text(aes(label = format(round(sub_importance, 2), nsmall = 2)), vjust = -0.5) +
+    ggtitle(paste(iter, n_obs, sep = ", n =")) +
+    guides(fill="none")
+}
+
+grid.arrange(grobs=plot_list,ncol=2)
+```
+
+
+### Civil status
+Exploring by whether a person is leaving with their partner or not.
+```{r}
+
+#### by living with partner
+plot_list <- list()
+var_by = brkfst$living_with_partner
+attr_levels <- unique(var_by)
+
+for (i in seq_along(attr_levels)) {
+  
+  iter = attr_levels[i]
+  n_obs = length(brkfst_part[var_by == iter,1])
+  
+  sub_importance <- 
+    ca.importance(brkfst_part[var_by == iter,], attribute)
+  
+  sub_importance_df <- data.frame(
+    sub_importance = sub_importance,
+    attribute_txt = names(sub_importance)
+  )
+  sub_importance_df <- sub_importance_df %>% 
+    mutate(group_fct = factor(attribute_txt, levels = c("Price", "Form", "PurchaseLocation",
+                                                        "FunPackaging", "CognitiveSupport", "DigitalIntegration"
+    )))
+  
+  plot_list[[i]] <- ggplot(sub_importance_df, aes(x=group_fct, y = sub_importance,
+                                                  fill=group_fct)) +
+    geom_col() +
+    coord_flip() +
+    scale_x_discrete(limits = rev(levels(sub_importance_df$group_fct))) +
+    geom_text(aes(label = format(round(sub_importance, 2), nsmall = 2)), vjust = -0.5) +
+    ggtitle(paste(iter, n_obs, sep = ", n =")) +
+    guides(fill="none")
+}
+
+grid.arrange(grobs=plot_list,ncol=2)
+
+```
+
+### Expected Salary
+Reflecting career ladder status and aspirations.
+```{r}
+
+#### by expected salary
+plot_list <- list()
+var_by = brkfst$expected_salary
+attr_levels <- unique(var_by)
+
+for (i in seq_along(attr_levels)) {
+  
+  iter = attr_levels[i]
+  n_obs = length(brkfst_part[var_by == iter,1])
+  
+  sub_importance <- 
+    ca.importance(brkfst_part[var_by == iter,], attribute)
+  
+  sub_importance_df <- data.frame(
+    sub_importance = sub_importance,
+    attribute_txt = names(sub_importance)
+  )
+  sub_importance_df <- sub_importance_df %>% 
+    mutate(group_fct = factor(attribute_txt, levels = c("Price", "Form", "PurchaseLocation",
+                                                        "FunPackaging", "CognitiveSupport", "DigitalIntegration"
+    )))
+  
+  plot_list[[i]] <- ggplot(sub_importance_df, aes(x=group_fct, y = sub_importance,
+                                                  fill=group_fct)) +
+    geom_col() +
+    coord_flip() +
+    scale_x_discrete(limits = rev(levels(sub_importance_df$group_fct))) +
+    geom_text(aes(label = format(round(sub_importance, 2), nsmall = 2)), vjust = -0.5) +
+    ggtitle(paste(iter, n_obs, sep = ", n =")) +
+    guides(fill="none")
+}
+
+grid.arrange(grobs=plot_list,ncol=2)
+
+
+```
+
+
+### Dietary restrictions
+Exploring the impact of personal dietary restrictions
+```{r}
+
+#### by dietary restriction
+plot_list <- list()
+var_by = brkfst$dietary_restrictions
+attr_levels <- unique(var_by)
+
+for (i in seq_along(attr_levels)) {
+  
+  iter = attr_levels[i]
+  n_obs = length(brkfst_part[var_by == iter,1])
+  
+  sub_importance <- 
+    ca.importance(brkfst_part[var_by == iter,], attribute)
+  
+  sub_importance_df <- data.frame(
+    sub_importance = sub_importance,
+    attribute_txt = names(sub_importance)
+  )
+  sub_importance_df <- sub_importance_df %>% 
+    mutate(group_fct = factor(attribute_txt, levels = c("Price", "Form", "PurchaseLocation",
+                                                        "FunPackaging", "CognitiveSupport", "DigitalIntegration"
+    )))
+  
+  plot_list[[i]] <- ggplot(sub_importance_df, aes(x=group_fct, y = sub_importance,
+                                                  fill=group_fct)) +
+    geom_col() +
+    coord_flip() +
+    scale_x_discrete(limits = rev(levels(sub_importance_df$group_fct))) +
+    geom_text(aes(label = format(round(sub_importance, 2), nsmall = 2)), vjust = -0.5) +
+    ggtitle(paste(iter, n_obs, sep = ", n =")) +
+    guides(fill="none")
+}
+
+grid.arrange(grobs=plot_list,ncol=2)
+
+```
+
+### Work start
+Breaking down by the time that the work day starts.
+```{r}
+
+#### by work start
+plot_list <- list()
+var_by = brkfst$work_start
+attr_levels <- unique(var_by)
+
+for (i in seq_along(attr_levels)) {
+  
+  iter = attr_levels[i]
+  n_obs = length(brkfst_part[var_by == iter,1])
+  
+  sub_importance <- 
+    ca.importance(brkfst_part[var_by == iter,], attribute)
+  
+  sub_importance_df <- data.frame(
+    sub_importance = sub_importance,
+    attribute_txt = names(sub_importance)
+  )
+  sub_importance_df <- sub_importance_df %>% 
+    mutate(group_fct = factor(attribute_txt, levels = c("Price", "Form", "PurchaseLocation",
+                                                        "FunPackaging", "CognitiveSupport", "DigitalIntegration"
+    )))
+  
+  plot_list[[i]] <- ggplot(sub_importance_df, aes(x=group_fct, y = sub_importance,
+                                                  fill=group_fct)) +
+    geom_col() +
+    coord_flip() +
+    scale_x_discrete(limits = rev(levels(sub_importance_df$group_fct))) +
+    geom_text(aes(label = format(round(sub_importance, 2), nsmall = 2)), vjust = -0.5) +
+    ggtitle(paste(iter, n_obs, sep = ", n =")) +
+    guides(fill="none")
+}
+
+grid.arrange(grobs=plot_list,ncol=2)
+
+```
+
+
+### Exercise frequency
+The number of times a person exercises per week.
+```{r}
+
+#### by exercise per week
+plot_list <- list()
+var_by = brkfst$exercise_per_week
+attr_levels <- unique(var_by)
+
+for (i in seq_along(attr_levels)) {
+  
+  iter = attr_levels[i]
+  n_obs = length(brkfst_part[var_by == iter,1])
+  
+  sub_importance <- 
+    ca.importance(brkfst_part[var_by == iter,], attribute)
+  
+  sub_importance_df <- data.frame(
+    sub_importance = sub_importance,
+    attribute_txt = names(sub_importance)
+  )
+  sub_importance_df <- sub_importance_df %>% 
+    mutate(group_fct = factor(attribute_txt, levels = c("Price", "Form", "PurchaseLocation",
+                                                        "FunPackaging", "CognitiveSupport", "DigitalIntegration"
+    )))
+  
+  plot_list[[i]] <- ggplot(sub_importance_df, aes(x=group_fct, y = sub_importance,
+                                                  fill=group_fct)) +
+    geom_col() +
+    coord_flip() +
+    scale_x_discrete(limits = rev(levels(sub_importance_df$group_fct))) +
+    geom_text(aes(label = format(round(sub_importance, 2), nsmall = 2)), vjust = -0.5) +
+    ggtitle(paste(iter, n_obs, sep = ", n =")) +
+    guides(fill="none")
+}
+
+grid.arrange(grobs=plot_list,ncol=2)
+```
+
+
+### Alcohol consumption
+How much a person's love for drinking influences their breakfast preferences.
+
+```{r}
+
+
+#### by alcohol per week
+plot_list <- list()
+var_by = brkfst$alcohol_per_week
+attr_levels <- unique(var_by)
+
+for (i in seq_along(attr_levels)) {
+  
+  iter = attr_levels[i]
+  n_obs = length(brkfst_part[var_by == iter,1])
+  
+  sub_importance <- 
+    ca.importance(brkfst_part[var_by == iter,], attribute)
+  
+  sub_importance_df <- data.frame(
+    sub_importance = sub_importance,
+    attribute_txt = names(sub_importance)
+  )
+  sub_importance_df <- sub_importance_df %>% 
+    mutate(group_fct = factor(attribute_txt, levels = c("Price", "Form", "PurchaseLocation",
+                                                        "FunPackaging", "CognitiveSupport", "DigitalIntegration"
+    )))
+  
+  plot_list[[i]] <- ggplot(sub_importance_df, aes(x=group_fct, y = sub_importance,
+                                                  fill=group_fct)) +
+    geom_col() +
+    coord_flip() +
+    scale_x_discrete(limits = rev(levels(sub_importance_df$group_fct))) +
+    geom_text(aes(label = format(round(sub_importance, 2), nsmall = 2)), vjust = -0.5) +
+    ggtitle(paste(iter, n_obs, sep = ", n =")) +
+    guides(fill="none")
+}
+
+grid.arrange(grobs=plot_list,ncol=2)
+
+```
+
+
+
+## Trade-off calculation
+Average value of one monetary utility is:
+$\frac{¥600 - ¥200}{0.513-(-0.572)}$ = ¥368.85
+
+```{r}
+# average monetary value of 1 utiliy
+# linear utility function
+util_linear_value <-  (600-200)/(average_utility["200"]-average_utility["600"])
+util_linear_value
+```
+
+
+Going from no cognitive support to Caffeine and Alertness boost, the client would be willing to pay more:
+```{r}
+# moving from none to caffeine or alertness boost
+(average_utility_df[average_utility_df$lng_level=="L_14_Caffeine or Alertness boost",]$avg_utility -
+    average_utility_df[average_utility_df$lng_level=="L_13_None",]$avg_utility) * util_linear_value
+```
+
+
+Going from no cognitive support to Natural Mood stabilizer, the client would be willing to pay more:
+```{r}
+# moving from none to natural mood stabiizers
+(average_utility_df[average_utility_df$lng_level=="L_15_Natural Mood Stabilizer",]$avg_utility -
+  average_utility_df[average_utility_df$lng_level=="L_13_None",]$avg_utility) * util_linear_value
+
+```
+
+
+## Market share prediction
+In order to test our potential market share, we benchmark against four existing alternatives:
+
+- the pastrami croissant from Paul Shimbashi
+- the 7-Eleven onigiri
+- the melonpan at Shimbashi cafe
+- the Family Mart protein stick 
+
+
+```{r}
+
+# Market Prediction
+## 5 benchmarks
+## Paul shimbashi, pastrami croissant
+brkfst_sim <- data.frame(
+  Price = c("600"),
+  Form = c("Bread and Pastries"),
+  PurchaseLocation = c("On Route to work"),
+  FunPackaging = c("None"),
+  CognitiveSupport = c("None"),
+  DigitalIntegration = c("None")
+)
+
+# 7-eleven onigiri
+brkfst_sim <- rbind(brkfst_sim,
+                    c("200","Onigiri","On Route to work","None","None","None"))
+
+
+# Shimbashi cafe melonpan
+brkfst_sim <- rbind(brkfst_sim,
+                    c("600","Bread and Pastries","On Route to work","Attack on Titan","None","None"))
+
+
+
+# Family Mart protein stick okaki
+brkfst_sim <- rbind(brkfst_sim,
+                    c("400","Protein sticks","Within 150m","None","None","None"))
+
+
+# Our own product
+brkfst_sim <- rbind(brkfst_sim,
+                    c("400","Onigiri","Within 150m","Attack on Titan",
+                      "Natural Mood Stabilizer","Loyalty points"))
+```
+
+Computing our market share:
+```{r}
+
+market_share <- 
+  data.frame(product = c("Paul pastrami croissant",
+                         "7-eleven onigiri",
+                         "Shimbashi cafe",
+                         "Family Mart protein stick",
+                         "MCU new excellent product"),
+             mkt_share = ca.logit(brkfst_sim, brkfst_part, brkfst_design))
+
+ggplot(market_share, aes(x= product, y = mkt_share,
+                         fill=product)) +
+  geom_col() +
+  coord_flip() +
+  scale_x_discrete(limits=rev) +
+  geom_text(aes(label = format(round(mkt_share, 2), nsmall = 2)), vjust = -0.5)
+
+
+```
+
+It seems it is not easy to beat the trusted onigiri in Japan.
+
+## Segmentation 
+To gain insight into behavioral subgroups, we run a segmentation analysis. To decide the number of clusters, we first look at the silhouette plot.
+
+```{r}
+# exclude intercept column
+brkfst_part_sg <- data.frame(brkfst_part[,-1])
+names(brkfst_part_sg)[10] <- c("No special packaging")
+names(brkfst_part_sg)[13] <- c("No cognitive support")
+names(brkfst_part_sg)[16] <- c("No digital integration")
+
+# silhouette plot
+fviz_nbclust(brkfst_part_sg, kmeans, method="silhouette")
+```
+
+Estimating four clusters:
+```{r}
+# estimating clusters
+brkfst_sg_4 <- k.means(brkfst_part_sg, n.cluster=4)
+
+# Cluster sizes
+prop.table(brkfst_sg_4$size)
+
+# interpreting clusters
+snake.ch2(brkfst_sg_4)
+
+#Cluster plot
+fviz_cluster(brkfst_sg_4, brkfst_part_sg, ellipse.type = "convex",
+             ggtheme = theme_minimal())
+```
+
+Estimating seven clusters:
+```{r}
+# estimating clusters
+brkfst_sg_7 <- k.means(brkfst_part_sg, n.cluster=7)
+
+# Cluster sizes
+prop.table(brkfst_sg_7$size)
+
+# interpreting clusters
+snake.ch2(brkfst_sg_7)
+
+#Cluster plot
+fviz_cluster(brkfst_sg_7, brkfst_part_sg, ellipse.type = "convex",
+             ggtheme = theme_minimal())
+```
 
