@@ -1844,7 +1844,7 @@ ggplot(sub_importance_df, aes(x=group_fct, y = sub_importance,
 
 
 
-## Compute market share -----
+## Compute market share - Japan -----
 ## 5 benchmarks
 ## Paul shimbashi, pastrami croissant
 brkfst_sim <- data.frame(
@@ -1883,6 +1883,70 @@ ca.logit(brkfst_sim, brkfst_part, brkfst_design)
 ca.logit(brkfst_sim, brkfst_part[brkfst$region == "East Asia",], brkfst_design)
 
 
+n_obs = length(brkfst[brkfst$country2=="Japan",]$nickname)
+iter = "Japan"
+market_share_jp <- 
+  data.frame(product = c("Paul pastrami croissant",
+                         "7-eleven onigiri",
+                         "Shimbashi cafe",
+                         "Family Mart protein stick",
+                         "MCU new excellent product"),
+             mkt_share = ca.logit(brkfst_sim,
+                                  brkfst_part[brkfst$country2 == "Japan",],
+                                  brkfst_design))
+
+ggplot(market_share_jp, aes(x= product, y = mkt_share,
+                         fill=product)) +
+  geom_col() +
+  coord_flip() +
+  scale_x_discrete(limits=rev) +
+  geom_text(aes(label = format(round(mkt_share, 2), nsmall = 2)), vjust = -0.5) +
+ggtitle(paste(iter, n_obs, sep = ", n =")) 
+
+
+
+
+## Compute market share - ALL SAMPLE -----
+## Paul shimbashi, pastrami croissant
+brkfst_sim <- data.frame(
+  Price = c("600"),
+  Form = c("Bread and Pastries"),
+  PurchaseLocation = c("On Route to work"),
+  FunPackaging = c("None"),
+  CognitiveSupport = c("None"),
+  DigitalIntegration = c("None")
+)
+
+# 7-eleven onigiri
+brkfst_sim <- rbind(brkfst_sim,
+                    c("200","Onigiri","On Route to work","None","None","None"))
+
+
+# Shimbashi cafe
+brkfst_sim <- rbind(brkfst_sim,
+                    c("600","Bread and Pastries","On Route to work","Attack on Titan","None","None"))
+
+
+
+# Family Mart protein stick
+brkfst_sim <- rbind(brkfst_sim,
+                    c("400","Protein sticks","Within 150m","None","None","None"))
+
+
+# Our own product
+brkfst_sim <- rbind(brkfst_sim,
+                    c("400","Onigiri","Within 150m","Attack on Titan",
+                      "Natural Mood Stabilizer","Loyalty points"))
+
+
+
+ca.logit(brkfst_sim, brkfst_part, brkfst_design)
+ca.logit(brkfst_sim, brkfst_part[brkfst$country2 == "Japan",], brkfst_design)
+
+
+
+n_obs = length(brkfst$nickname)
+iter = "All sample"
 market_share <- 
   data.frame(product = c("Paul pastrami croissant",
                          "7-eleven onigiri",
@@ -1896,9 +1960,8 @@ ggplot(market_share, aes(x= product, y = mkt_share,
   geom_col() +
   coord_flip() +
   scale_x_discrete(limits=rev) +
-  geom_text(aes(label = format(round(mkt_share, 2), nsmall = 2)), vjust = -0.5)
-
-
+  geom_text(aes(label = format(round(mkt_share, 2), nsmall = 2)), vjust = -0.5) +
+  ggtitle(paste(iter, n_obs, sep = ", n =")) 
 
 
 

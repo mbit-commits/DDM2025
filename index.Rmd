@@ -2154,6 +2154,8 @@ Computing our market share:
 
 ```{r}
 
+n_obs = length(brkfst$nickname)
+iter = "All sample"
 market_share <- 
   data.frame(product = c("Paul pastrami croissant",
                          "7-eleven onigiri",
@@ -2167,12 +2169,41 @@ ggplot(market_share, aes(x= product, y = mkt_share,
   geom_col() +
   coord_flip() +
   scale_x_discrete(limits=rev) +
-  geom_text(aes(label = format(round(mkt_share, 2), nsmall = 2)), vjust = -0.5)
+  geom_text(aes(label = format(round(mkt_share, 2), nsmall = 2)), vjust = -0.5) +
+  ggtitle(paste(iter, n_obs, sep = ", n =")) 
 
 
 ```
 
 It seems it is not easy to beat the trusted onigiri in Japan.
+
+Computing market share only for Japanese nationality:
+```{r}
+
+
+n_obs = length(brkfst[brkfst$country2=="Japan",]$nickname)
+iter = "Japan"
+market_share_jp <- 
+  data.frame(product = c("Paul pastrami croissant",
+                         "7-eleven onigiri",
+                         "Shimbashi cafe",
+                         "Family Mart protein stick",
+                         "MCU new excellent product"),
+             mkt_share = ca.logit(brkfst_sim,
+                                  brkfst_part[brkfst$country2 == "Japan",],
+                                  brkfst_design))
+
+ggplot(market_share_jp, aes(x= product, y = mkt_share,
+                         fill=product)) +
+  geom_col() +
+  coord_flip() +
+  scale_x_discrete(limits=rev) +
+  geom_text(aes(label = format(round(mkt_share, 2), nsmall = 2)), vjust = -0.5) +
+ggtitle(paste(iter, n_obs, sep = ", n =")) 
+
+
+```
+
 
 
 ## Appendix - Various data tables
