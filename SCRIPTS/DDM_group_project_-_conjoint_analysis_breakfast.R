@@ -1674,13 +1674,14 @@ fviz_cluster(brkfst_sg_4, brkfst_part_sg, ellipse.type = "convex",
 
 ## segment composition -----
 # For analysis: Keep as separate vectors
+### By country ----
 brkfst_clst <- cbind(brkfst_cmb, 
                      cluster = brkfst_sg_4$cluster)
 
 cluster1_names <- brkfst_clst[brkfst_clst$cluster == 1, "country2"]
 cluster2_names <- brkfst_clst[brkfst_clst$cluster == 2, "country2"]
 cluster3_names <- brkfst_clst[brkfst_clst$cluster == 3, "country2"]
-cluster4_names <- brkfst_clst[brkfst_clst$cluster == 4, "country"]
+cluster4_names <- brkfst_clst[brkfst_clst$cluster == 4, "country2"]
 
 
 # For presentation: Create NA-padded data frame
@@ -1692,6 +1693,171 @@ presentation_df <- data.frame(
 )
 
 kable(presentation_df)
+
+# For analysis: Keep as separate vectors
+### By Nickname ----
+brkfst_clst <- cbind(brkfst_cmb, 
+                     cluster = brkfst_sg_4$cluster)
+
+cluster1_names <- brkfst_clst[brkfst_clst$cluster == 1, "nickname"]
+cluster2_names <- brkfst_clst[brkfst_clst$cluster == 2, "nickname"]
+cluster3_names <- brkfst_clst[brkfst_clst$cluster == 3, "nickname"]
+cluster4_names <- brkfst_clst[brkfst_clst$cluster == 4, "nickname"]
+
+
+# For presentation: Create NA-padded data frame
+presentation_df <- data.frame(
+  cluster1 = c(cluster1_names, rep(NA, length(cluster1_names) - length(cluster1_names))),
+  cluster2 = c(cluster2_names, rep(NA, length(cluster1_names) - length(cluster2_names))),
+  cluster3 = c(cluster3_names, rep(NA, length(cluster1_names) - length(cluster3_names))),
+  cluster4 = c(cluster4_names, rep(NA, length(cluster1_names) - length(cluster4_names)))
+)
+
+kable(presentation_df)
+
+
+## segment part worth -----
+#segmenting part-worth utilities by cluster
+plot_list <- list()
+var_by = brkfst_clst$cluster
+attr_levels <- unique(var_by)
+
+for (i in seq_along(attr_levels)) {
+  
+  iter = attr_levels[i]
+  n_obs = length(brkfst_part[var_by == iter,1])
+  
+  average_utility <- colMeans(brkfst_part[var_by==iter,,drop=FALSE])
+  average_utility_df <- data.frame(level = names(average_utility),
+                                   avg_utility = average_utility)
+  
+  average_utility_df <- 
+    average_utility_df %>% 
+    filter(level != "intercept")
+  
+  average_utility_df <- 
+    average_utility_df %>% 
+    mutate(group =
+             c("Price", "Price", "Price",
+               "Form", "Form", "Form",
+               "PurchaseLocation", "PurchaseLocation", "PurchaseLocation",
+               "FunPackaging", "FunPackaging", "FunPackaging",
+               "CognitiveSupport", "CognitiveSupport","CognitiveSupport",
+               "DigitalIntegration", "DigitalIntegration", "DigitalIntegration"
+             )) %>% 
+    mutate(level_fct = factor(level)) %>% 
+    mutate(rank = seq.int(1:length(average_utility_df$level))) %>% 
+    mutate(order_rnk = level, rank) %>% 
+    mutate(space_char = rep(c("L"), length(average_utility_df$level))) %>% 
+    unite("lng_level", c("space_char","rank","level"))
+  
+  average_utility_df <- average_utility_df %>% 
+    mutate(rank = seq.int(1:length(average_utility_df$level))) %>% 
+    mutate(lng_level = as.factor(lng_level)) %>% 
+    mutate(lng_level = fct_reorder(lng_level, rank )) %>% 
+    mutate(group_fct = factor(group, levels = c("Price", "Form", "PurchaseLocation",
+                                                "FunPackaging", "CognitiveSupport", "DigitalIntegration"
+    )))
+  
+  
+  plot_list[[i]] <- ggplot(average_utility_df, aes(x=lng_level, y = avg_utility
+                                                   ,fill = group_fct
+  ))+
+    geom_col() +
+    coord_flip() + 
+    scale_x_discrete(limits = rev(levels(average_utility_df$lng_level))) +
+    geom_text(aes(label = format(round(avg_utility, 2), nsmall = 2)), vjust = -0.5) +
+    ggtitle(paste(iter, n_obs, sep = ", n=")) +
+    guides(fill="none")
+}
+grid.arrange(grobs=plot_list,ncol=2)
+
+
+## segment cluster - sorted descending
+plot_list <- list()
+var_by = brkfst_clst$cluster
+attr_levels <- unique(var_by)
+
+
+for (i in seq_along(attr_levels)) {
+  
+  iter = attr_levels[i]
+  n_obs = length(brkfst_cmb[var_by == iter,1])
+  
+  brkfst_desc_slice <-  brkfst_cmb[var_by == iter,] %>% 
+    mutate(item_col = iter) %>% 
+    group_by(item_col) %>% 
+    summarise_at(vars(L_1_200:`L_18_Nutrition Advice`),
+                 mean , na.rm = TRUE) %>% 
+    pivot_longer(-item_col) %>% 
+    mutate(group_aggr =
+             c("Price", "Price", "Price",
+               "Form", "Form", "Form",
+               "PurchaseLocation", "PurchaseLocation", "PurchaseLocation",
+               "FunPackaging", "FunPackaging", "FunPackaging",
+               "CognitiveSupport", "CognitiveSupport","CognitiveSupport",
+               "DigitalIntegration", "DigitalIntegration", "DigitalIntegration"
+             )) %>%
+    mutate(group_aggr = 
+             factor(group_aggr, levels = c("Price", "Form", "PurchaseLocation",
+                                           "FunPackaging", "CognitiveSupport", "DigitalIntegration"
+             ))) %>% 
+    arrange(desc(value)) %>% 
+    ungroup
+  
+  #kable(brkfst_desc_slice)
+  
+  
+  plot_list[[i]] <- ggplot(brkfst_desc_slice, 
+                           aes(x= reorder(name,value), y = value
+                               ,fill = group_aggr
+                           ))+
+    geom_col() +
+    coord_flip() + 
+    #scale_x_discrete(limits = rev(levels(average_utility_df$lng_level))) +
+    geom_text(aes(label = format(round(value, 2), nsmall = 2)), vjust = -0.5) +
+    ggtitle(paste(iter, n_obs, sep = ", n=")) +
+    guides(fill="none")
+}
+grid.arrange(grobs=plot_list,ncol=2)
+
+
+
+
+#### importance by cluster
+plot_list <- list()
+var_by = brkfst_clst$cluster
+attr_levels <- unique(var_by)
+
+for (i in seq_along(attr_levels)) {
+  
+  iter = attr_levels[i]
+  n_obs = length(brkfst_part[var_by == iter,1])
+  
+  sub_importance <- 
+    ca.importance(brkfst_part[var_by == iter,], attribute)
+  
+  sub_importance_df <- data.frame(
+    sub_importance = sub_importance,
+    attribute_txt = names(sub_importance)
+  )
+  sub_importance_df <- sub_importance_df %>% 
+    mutate(group_fct = factor(attribute_txt, levels = c("Price", "Form", "PurchaseLocation",
+                                                        "FunPackaging", "CognitiveSupport", "DigitalIntegration"
+    )))
+  
+  plot_list[[i]] <- ggplot(sub_importance_df, aes(x=group_fct, y = sub_importance,
+                                                  fill=group_fct)) +
+    geom_col() +
+    coord_flip() +
+    scale_x_discrete(limits = rev(levels(sub_importance_df$group_fct))) +
+    geom_text(aes(label = format(round(sub_importance, 2), nsmall = 2)), vjust = -0.5) +
+    ggtitle(paste(iter, n_obs, sep = ", n =")) +
+    guides(fill="none")
+}
+
+grid.arrange(grobs=plot_list,ncol=2)
+
 
 
 
@@ -1843,69 +2009,6 @@ ggplot(sub_importance_df, aes(x=group_fct, y = sub_importance,
 
 
 
-
-## Compute market share - Japan -----
-## 5 benchmarks
-## Paul shimbashi, pastrami croissant
-brkfst_sim <- data.frame(
-  Price = c("600"),
-  Form = c("Bread and Pastries"),
-  PurchaseLocation = c("On Route to work"),
-  FunPackaging = c("None"),
-  CognitiveSupport = c("None"),
-  DigitalIntegration = c("None")
-)
-
-# 7-eleven onigiri
-brkfst_sim <- rbind(brkfst_sim,
-                    c("200","Onigiri","On Route to work","None","None","None"))
-
-
-# Shimbashi cafe
-brkfst_sim <- rbind(brkfst_sim,
-                    c("600","Bread and Pastries","On Route to work","Attack on Titan","None","None"))
-
-
-
-# Family Mart protein stick
-brkfst_sim <- rbind(brkfst_sim,
-                    c("400","Protein sticks","Within 150m","None","None","None"))
-
-
-# Our own product
-brkfst_sim <- rbind(brkfst_sim,
-                    c("400","Onigiri","Within 150m","Attack on Titan",
-                      "Natural Mood Stabilizer","Loyalty points"))
-
-
-
-ca.logit(brkfst_sim, brkfst_part, brkfst_design)
-ca.logit(brkfst_sim, brkfst_part[brkfst$region == "East Asia",], brkfst_design)
-
-
-n_obs = length(brkfst[brkfst$country2=="Japan",]$nickname)
-iter = "Japan"
-market_share_jp <- 
-  data.frame(product = c("Paul pastrami croissant",
-                         "7-eleven onigiri",
-                         "Shimbashi cafe",
-                         "Family Mart protein stick",
-                         "MCU new excellent product"),
-             mkt_share = ca.logit(brkfst_sim,
-                                  brkfst_part[brkfst$country2 == "Japan",],
-                                  brkfst_design))
-
-ggplot(market_share_jp, aes(x= product, y = mkt_share,
-                         fill=product)) +
-  geom_col() +
-  coord_flip() +
-  scale_x_discrete(limits=rev) +
-  geom_text(aes(label = format(round(mkt_share, 2), nsmall = 2)), vjust = -0.5) +
-ggtitle(paste(iter, n_obs, sep = ", n =")) 
-
-
-
-
 ## Compute market share - ALL SAMPLE -----
 ## Paul shimbashi, pastrami croissant
 brkfst_sim <- data.frame(
@@ -1922,9 +2025,9 @@ brkfst_sim <- rbind(brkfst_sim,
                     c("200","Onigiri","On Route to work","None","None","None"))
 
 
-# Shimbashi cafe
+# 7-eleven coffee sandwich
 brkfst_sim <- rbind(brkfst_sim,
-                    c("600","Bread and Pastries","On Route to work","Attack on Titan","None","None"))
+                    c("400","Bread and Pastries","On Route to work","None","Caffeine or Alertness boost","None"))
 
 
 
@@ -1935,13 +2038,13 @@ brkfst_sim <- rbind(brkfst_sim,
 
 # Our own product
 brkfst_sim <- rbind(brkfst_sim,
-                    c("400","Onigiri","Within 150m","Attack on Titan",
+                    c("200","Onigiri","On Route to work","None",
                       "Natural Mood Stabilizer","Loyalty points"))
 
 
 
 ca.logit(brkfst_sim, brkfst_part, brkfst_design)
-ca.logit(brkfst_sim, brkfst_part[brkfst$country2 == "Japan",], brkfst_design)
+#ca.logit(brkfst_sim, brkfst_part[brkfst$country2 == "Japan",], brkfst_design)
 
 
 
@@ -1950,7 +2053,7 @@ iter = "All sample"
 market_share <- 
   data.frame(product = c("Paul pastrami croissant",
                          "7-eleven onigiri",
-                         "Shimbashi cafe",
+                         "7-eleven coffee sandwhich",
                          "Family Mart protein stick",
                          "MCU new excellent product"),
              mkt_share = ca.logit(brkfst_sim, brkfst_part, brkfst_design))
@@ -1963,6 +2066,34 @@ ggplot(market_share, aes(x= product, y = mkt_share,
   geom_text(aes(label = format(round(mkt_share, 2), nsmall = 2)), vjust = -0.5) +
   ggtitle(paste(iter, n_obs, sep = ", n =")) 
 
+
+
+## Compute market share - Japan -----
+## 5 benchmarks
+## Paul shimbashi, pastrami croissant
+#ca.logit(brkfst_sim, brkfst_part, brkfst_design)
+ca.logit(brkfst_sim, brkfst_part[brkfst$region == "East Asia",], brkfst_design)
+
+
+n_obs = length(brkfst[brkfst$country2=="Japan",]$nickname)
+iter = "Japan"
+market_share_jp <- 
+  data.frame(product = c("Paul pastrami croissant",
+                         "7-eleven onigiri",
+                         "7-eleven coffee sandwhich",
+                         "Family Mart protein stick",
+                         "MCU new excellent product"),
+             mkt_share = ca.logit(brkfst_sim,
+                                  brkfst_part[brkfst$country2 == "Japan",],
+                                  brkfst_design))
+
+ggplot(market_share_jp, aes(x= product, y = mkt_share,
+                            fill=product)) +
+  geom_col() +
+  coord_flip() +
+  scale_x_discrete(limits=rev) +
+  geom_text(aes(label = format(round(mkt_share, 2), nsmall = 2)), vjust = -0.5) +
+  ggtitle(paste(iter, n_obs, sep = ", n =")) 
 
 
 
