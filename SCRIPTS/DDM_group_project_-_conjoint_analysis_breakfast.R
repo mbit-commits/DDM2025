@@ -2025,10 +2025,9 @@ brkfst_sim <- rbind(brkfst_sim,
                     c("200","Onigiri","On Route to work","None","None","None"))
 
 
-# 7-eleven coffee sandwich
+# Shimbashi cafe melonpan
 brkfst_sim <- rbind(brkfst_sim,
-                    c("400","Bread and Pastries","On Route to work","None","Caffeine or Alertness boost","None"))
-
+                    c("200","Bread and Pastries","On Route to work","None","None","None"))
 
 
 # Family Mart protein stick
@@ -2053,7 +2052,7 @@ iter = "All sample"
 market_share <- 
   data.frame(product = c("Paul pastrami croissant",
                          "7-eleven onigiri",
-                         "7-eleven coffee sandwhich",
+                         "Shimbashi melonpan",
                          "Family Mart protein stick",
                          "MCU new excellent product"),
              mkt_share = ca.logit(brkfst_sim, brkfst_part, brkfst_design))
@@ -2080,7 +2079,7 @@ iter = "Japan"
 market_share_jp <- 
   data.frame(product = c("Paul pastrami croissant",
                          "7-eleven onigiri",
-                         "7-eleven coffee sandwhich",
+                         "Shimbashi melonpan",
                          "Family Mart protein stick",
                          "MCU new excellent product"),
              mkt_share = ca.logit(brkfst_sim,
@@ -2215,3 +2214,7 @@ brkfst_cmb %>%
 
 
 
+
+
+## inspecting in excel output
+write.csv(brkfst_clst, "OUTPUTS/brkfst_clst_cond_format.csv")
